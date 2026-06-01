@@ -1,0 +1,10 @@
+wp
+composer.lock
+composer.phar
+vendor/
+.DS_Store
+.idea/
+*.log
+*.sql
+*.zip
+build

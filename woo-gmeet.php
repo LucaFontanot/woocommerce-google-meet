@@ -3,7 +3,7 @@
 /*
 Plugin Name: WooCommerce Google Meet Integration
 Description: Integrates Google Meet with WooCommerce for creating and managing meetings.
-Version: 1.0
+Version: 1.2
 Author: lucaf
 License: GPL2
 Requires Plugins: woocommerce

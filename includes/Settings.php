@@ -120,23 +120,16 @@ class Settings
             'label' => 'Invia una email agli amministratori con i dettagli della prenotazione',
             'description' => ''
         ]);
-        add_settings_field('admin_email_list', 'Email amministratori', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_main', [
+        add_settings_field('admin_email_list', 'Email amministratori', [__CLASS__, 'email_list'], self::OPT_EMAIL, 'wgm_email_main', [
             'key' => 'admin_email_list',
             'option' => self::OPT_EMAIL,
-            'placeholder' => 'example@example.com',
-            'description' => 'Indirizzi email separati da virgola. Le email di notifica verranno inviate a questi indirizzi quando viene creata una nuova prenotazione.'
+            'description' => 'Aggiungi gli indirizzi email degli amministratori che riceveranno le notifiche di nuova prenotazione.'
         ]);
         add_settings_field('admin_email_subject', 'Email amministratori titolo', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_main', [
             'key' => 'admin_email_subject',
             'option' => self::OPT_EMAIL,
-            'placeholder' => 'Nuova prenotazione: [EVENT_SUMMARY]',
-            'description' => 'Sono disponibili i seguenti tag: [EVENT_SUMMARY], [EVENT_START], [EVENT_END], [CUSTOMER_NAME], [CUSTOMER_EMAIL]'
-        ]);
-        add_settings_field('admin_email_template', 'Email amministratori', [__CLASS__, 'textarea'], self::OPT_EMAIL, 'wgm_email_main', [
-            'key' => 'admin_email_template',
-            'option' => self::OPT_EMAIL,
-            'description' => 'Sono disponibili i seguenti tag: [MEET_LINK], [EVENT_SUMMARY], [EVENT_START], [EVENT_END], [EVENT_DESCRIPTION], [CUSTOMER_NAME], [CUSTOMER_EMAIL]',
-            'placeholder' => 'HTML Email Template',
+            'placeholder' => 'Nuova prenotazione: {{EVENT_SUMMARY}}',
+            'description' => 'Sono disponibili i seguenti tag: {{EVENT_SUMMARY}}, [EVENT_START], [EVENT_END], [CUSTOMER_NAME], [CUSTOMER_EMAIL]'
         ]);
         add_settings_field('customer_email_enabled', 'Email cliente abilitata', [__CLASS__, 'checkbox'], self::OPT_EMAIL, 'wgm_email_main', [
             'key' => 'customer_email_enabled',
@@ -147,14 +140,61 @@ class Settings
         add_settings_field('customer_email_subject', 'Email cliente titolo', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_main', [
             'key' => 'customer_email_subject',
             'option' => self::OPT_EMAIL,
-            'placeholder' => 'Dettagli prenotazione: [EVENT_SUMMARY]',
-            'description' => 'Sono disponibili i seguenti tag: [EVENT_SUMMARY], [EVENT_START], [EVENT_END], [CUSTOMER_NAME], [CUSTOMER_EMAIL]'
+            'placeholder' => 'Dettagli prenotazione: {{EVENT_SUMMARY}}',
+            'description' => 'Sono disponibili i seguenti tag: {{EVENT_SUMMARY}}, [EVENT_START], [EVENT_END], [CUSTOMER_NAME], [CUSTOMER_EMAIL]'
         ]);
-        add_settings_field('customer_email_template', 'Email cliente', [__CLASS__, 'textarea'], self::OPT_EMAIL, 'wgm_email_main', [
-            'key' => 'customer_email_template',
+
+        // Personalizzazione template
+        add_settings_section('wgm_email_personalization', 'Personalizzazione template', function () {
+            echo '<p>Personalizza l\'aspetto delle email in uscita con i colori, il logo e i testi del tuo brand.</p>';
+        }, self::OPT_EMAIL);
+        add_settings_field('email_primary_color', 'Colore primario', [__CLASS__, 'color'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_primary_color',
             'option' => self::OPT_EMAIL,
-            'description' => 'Sono disponibili i seguenti tag: [MEET_LINK], [EVENT_SUMMARY], [EVENT_START], [EVENT_END], [EVENT_DESCRIPTION], [CUSTOMER_NAME], [CUSTOMER_EMAIL]',
-            'placeholder' => 'HTML Email Template',
+            'default' => '#1a73e8',
+            'description' => 'Colore principale per intestazioni, pulsanti e link.'
+        ]);
+        add_settings_field('email_accent_color', 'Colore accento', [__CLASS__, 'color'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_accent_color',
+            'option' => self::OPT_EMAIL,
+            'default' => '#e8f0fe',
+            'description' => 'Colore secondario per sfondo dei banner informativi.'
+        ]);
+        add_settings_field('email_logo_url', 'URL logo', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_logo_url',
+            'option' => self::OPT_EMAIL,
+            'placeholder' => 'https://example.com/logo.png',
+            'description' => 'URL dell\'immagine del logo da mostrare nell\'intestazione delle email. Lascia vuoto per non mostrare alcun logo.'
+        ]);
+        add_settings_field('email_header_text', 'Testo intestazione', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_header_text',
+            'option' => self::OPT_EMAIL,
+            'placeholder' => get_bloginfo('name'),
+            'description' => 'Testo mostrato nell\'intestazione colorata delle email. Default: nome del sito.'
+        ]);
+        add_settings_field('email_footer_text', 'Testo pi&egrave; di pagina', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_footer_text',
+            'option' => self::OPT_EMAIL,
+            'placeholder' => 'Grazie per averci scelto!',
+            'description' => 'Testo mostrato nel pi&egrave; di pagina delle email.'
+        ]);
+        add_settings_field('email_footer_links', 'Link pi&egrave; di pagina', [__CLASS__, 'textarea'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_footer_links',
+            'option' => self::OPT_EMAIL,
+            'placeholder' => "Privacy Policy|https://example.com/privacy\nTermini|https://example.com/terms",
+            'description' => 'Link nel pi&egrave; di pagina. Uno per riga nel formato: Testo|URL'
+        ]);
+        add_settings_field('email_sender_name', 'Nome mittente', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_sender_name',
+            'option' => self::OPT_EMAIL,
+            'placeholder' => get_bloginfo('name'),
+            'description' => 'Nome visualizzato come mittente delle email. Lascia vuoto per usare il default di WordPress.'
+        ]);
+        add_settings_field('email_reply_to', 'Indirizzo Reply-To', [__CLASS__, 'text'], self::OPT_EMAIL, 'wgm_email_personalization', [
+            'key' => 'email_reply_to',
+            'option' => self::OPT_EMAIL,
+            'placeholder' => 'info@example.com',
+            'description' => 'Indirizzo email a cui il destinatario pu&ograve; rispondere.'
         ]);
     }
 
@@ -202,8 +242,12 @@ class Settings
         foreach ($checkbox_keys as $key) {
             $sanitized[$key] = isset($input[$key]) && $input[$key] === 'yes' ? 'yes' : 'no';
         }
-        if (isset($input['admin_email_list'])) {
-            $sanitized['admin_email_list'] = sanitize_text_field($input['admin_email_list']);
+        // Admin email list — array of individual emails
+        if (isset($input['admin_email_list']) && is_array($input['admin_email_list'])) {
+            $sanitized['admin_email_list'] = array_values(array_filter(array_map('sanitize_email', $input['admin_email_list'])));
+        } elseif (isset($input['admin_email_list']) && is_string($input['admin_email_list'])) {
+            // Legacy: single comma-separated string
+            $sanitized['admin_email_list'] = array_values(array_filter(array_map('sanitize_email', array_map('trim', explode(',', $input['admin_email_list'])))));
         }
         $text_keys = ['admin_email_subject', 'customer_email_subject'];
         foreach ($text_keys as $key) {
@@ -211,12 +255,24 @@ class Settings
                 $sanitized[$key] = sanitize_text_field($input[$key]);
             }
         }
-        // Email templates allow HTML
-        $html_keys = ['admin_email_template', 'customer_email_template'];
-        foreach ($html_keys as $key) {
+        // Personalization fields
+        $string_keys = [
+            'email_primary_color',
+            'email_accent_color',
+            'email_logo_url',
+            'email_header_text',
+            'email_footer_text',
+            'email_sender_name',
+            'email_reply_to',
+        ];
+        foreach ($string_keys as $key) {
             if (isset($input[$key])) {
-                $sanitized[$key] = wp_kses_post($input[$key]);
+                $sanitized[$key] = sanitize_text_field($input[$key]);
             }
+        }
+        // Footer links — allow line breaks but strip HTML
+        if (isset($input['email_footer_links'])) {
+            $sanitized['email_footer_links'] = sanitize_textarea_field($input['email_footer_links']);
         }
         return $sanitized;
     }
@@ -277,6 +333,45 @@ class Settings
             $safe_color = sanitize_hex_color($color) ?: '#000000';
             echo '<label style="margin-right:10px;"><input type="radio" name="' . esc_attr($args['option'] ?? self::OPT_ACCOUNT) . '[' . esc_attr($args['key']) . ']" value="' . esc_attr($val) . '" ' . $checked . '/>'
                 . '<span style="display:inline-block;width:20px;height:20px;background-color:' . esc_attr($safe_color) . ';border:1px solid #000;margin-left:5px;vertical-align:middle;"></span></label>';
+        }
+    }
+
+    public static function email_list($args)
+    {
+        $emails = self::get($args['key'], [], $args['option'] ?? self::OPT_EMAIL);
+        if (!is_array($emails)) {
+            $emails = !empty($emails) ? array_map('trim', explode(',', $emails)) : [];
+        }
+        if (empty($emails)) {
+            $emails = [''];
+        }
+        $option_name = esc_attr(($args['option'] ?? self::OPT_EMAIL) . '[' . $args['key'] . '][]');
+        echo '<div id="wgm-email-list" style="max-width:400px;">';
+        foreach ($emails as $i => $email) {
+            echo '<div class="wgm-email-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">';
+            echo '<input type="email" name="' . $option_name . '" value="' . esc_attr($email) . '" class="regular-text" placeholder="admin@example.com" style="flex:1;" />';
+            echo '<button type="button" class="button button-secondary wgm-remove-email" title="Rimuovi">&times;</button>';
+            echo '</div>';
+        }
+        // Hidden template for cloning
+        echo '<div class="wgm-email-row wgm-email-row-template" style="display:none;align-items:center;gap:6px;margin-bottom:6px;">';
+        echo '<input type="email" name="' . $option_name . '" value="" class="regular-text" placeholder="admin@example.com" style="flex:1;" disabled />';
+        echo '<button type="button" class="button button-secondary wgm-remove-email" title="Rimuovi">&times;</button>';
+        echo '</div>';
+        echo '<button type="button" class="button wgm-add-email" style="margin-top:4px;">+ Aggiungi email</button>';
+        echo '</div>';
+        if (!empty($args['description'])) {
+            echo '<p class="description">' . wp_kses($args['description'], ['a' => ['href' => [], 'target' => [], 'rel' => []]]) . '</p>';
+        }
+    }
+
+    public static function color($args)
+    {
+        $v = esc_attr(self::get($args['key'], $args['default'] ?? '#000000', $args['option'] ?? self::OPT_EMAIL));
+        echo '<input type="color" name="' . esc_attr($args['option'] ?? self::OPT_EMAIL) . '[' . esc_attr($args['key']) . ']" value="' . $v . '" />';
+        echo ' <code style="margin-left:4px;">' . $v . '</code>';
+        if (!empty($args['description'])) {
+            echo '<p class="description">' . wp_kses($args['description'], ['a' => ['href' => [], 'target' => [], 'rel' => []]]) . '</p>';
         }
     }
 
@@ -346,6 +441,13 @@ class Settings
         if (!current_user_can('manage_options')) {
             wp_die(__('Non hai i permessi per accedere a questa pagina.', 'wgm'));
         }
+        wp_enqueue_script(
+            'wgm-email-settings',
+            WGM_URL . 'assets/admin/email-settings.js',
+            ['jquery'],
+            '1.0',
+            true
+        );
         self::render_section('Impostazioni email', self::OPT_EMAIL);
     }
 

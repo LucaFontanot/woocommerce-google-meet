@@ -1,28 +1,25 @@
 #!/bin/bash
-set -e
 
 PLUGIN_SLUG="woocommerce-meetings"
-BUILD_DIR="build/$PLUGIN_SLUG"
+OUTPUT_DIR="./build"
+ZIP_FILE="${OUTPUT_DIR}/${PLUGIN_SLUG}.zip"
 
-# Pulizia build precedente
-echo "Pulizia cartella build..."
-rm -rf build
-mkdir -p "$BUILD_DIR"
+mkdir -p "$OUTPUT_DIR"
 
-# Copia i file necessari
-cp woo-gmeet.php "$BUILD_DIR"/
-cp -r includes "$BUILD_DIR"/
-cp -r assets "$BUILD_DIR"/
-cp -r vendor "$BUILD_DIR"/
+rm -f "$ZIP_FILE"
 
-# Copia file di licenza e readme se esistono
-[ -f LICENSE ] && cp LICENSE "$BUILD_DIR"/
-[ -f README.md ] && cp README.md "$BUILD_DIR"/
+echo "Building ${PLUGIN_SLUG} zip bundle..."
 
-# Crea lo zip
-cd build
-zip -r "${PLUGIN_SLUG}.zip" "$PLUGIN_SLUG"
-cd ..
+zip -r "$ZIP_FILE" . \
+    --include \
+        "woo-gmeet.php" \
+        "uninstall.php" \
+        "readme.txt" \
+        "assets/*" \
+        "includes/*" \
+        "templates/*" \
+        "vendor/*" \
+    --exclude "*.git*"
 
-echo "Build completata. Trovi lo zip in build/${PLUGIN_SLUG}.zip"
+echo "Done! Bundle created at: ${ZIP_FILE}"
 

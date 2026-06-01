@@ -187,33 +187,9 @@ class Checkout
                 $item->add_meta_data(__('Link riunione', 'wgm'), $meetingUrl);
             }
             $item->save();
-            // Prepara la mail
-            $sendCustomerEmail = \WGM\Settings::get('customer_email_enabled', 'no', \WGM\Settings::OPT_EMAIL) === 'yes';
-            if ($sendCustomerEmail){
-                $mail = new \WGM\Email($event, $order, $customer);
-                $mail->setMeetingUrl($meetingUrl);
-                $subject = \WGM\Settings::get('customer_email_subject', 'La tua prenotazione', \WGM\Settings::OPT_EMAIL);
-                $body = \WGM\Settings::get('customer_email_template', '[MEETING_URL]', \WGM\Settings::OPT_EMAIL);
-                $mail->setSubject($subject);
-                $mail->setBody($body);
-                $mail->send($customer->get_email());
-            }
-            $sendAdminEmail = \WGM\Settings::get('admin_email_enabled', 'no', \WGM\Settings::OPT_EMAIL) === 'yes';
-            if ($sendAdminEmail){
-                $adminEmails = explode(',', \WGM\Settings::get('admin_email_list', '', \WGM\Settings::OPT_EMAIL));
-                foreach ($adminEmails as $adminEmail) {
-                    $adminEmail = trim($adminEmail);
-                    if (is_email($adminEmail)) {
-                        $mail = new \WGM\Email($event, $order, $customer);
-                        $mail->setMeetingUrl($meetingUrl);
-                        $subject = \WGM\Settings::get('admin_email_subject', 'Nuova prenotazione', \WGM\Settings::OPT_EMAIL);
-                        $body = \WGM\Settings::get('admin_email_template', '[MEETING_URL]', \WGM\Settings::OPT_EMAIL);
-                        $mail->setSubject($subject);
-                        $mail->setBody($body);
-                        $mail->send($adminEmail);
-                    }
-                }
-            }
+            // Invia notifiche email tramite il dispatcher
+            \WGM\EmailDispatcher::sendCustomerNotification($event, $order, $customer, $meetingUrl);
+            \WGM\EmailDispatcher::sendAdminNotification($event, $order, $customer, $meetingUrl);
         }
     }
 

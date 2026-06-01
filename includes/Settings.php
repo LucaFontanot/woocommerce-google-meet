@@ -12,9 +12,6 @@ class Settings
 
     public static function init()
     {
-        if (!current_user_can('manage_options')) {
-            return;
-        }
         add_action('admin_menu', [__CLASS__, 'menu']);
         add_action('admin_init', [__CLASS__, 'register']);
         add_action('admin_init', [__CLASS__, 'handle_google_login']);
@@ -46,7 +43,9 @@ class Settings
             return;
         }
         // Account
-        register_setting(self::OPT_ACCOUNT, self::OPT_ACCOUNT);
+        register_setting(self::OPT_ACCOUNT, self::OPT_ACCOUNT, [
+            'sanitize_callback' => [__CLASS__, 'sanitize_account'],
+        ]);
         add_settings_section('wgm_account_main', 'Impostazioni account', '__return_false', self::OPT_ACCOUNT);
         add_settings_field('auth_json', 'Credenziali Google API Console (JSON)', [__CLASS__, 'textarea'], self::OPT_ACCOUNT, 'wgm_account_main', [
             'key' => 'auth_json',
@@ -58,7 +57,9 @@ class Settings
         add_settings_field('google_login', 'Login con Google', [__CLASS__, 'google_login_button'], self::OPT_ACCOUNT, 'wgm_account_main', []);
 
         // Calendario
-        register_setting(self::OPT_CALENDAR, self::OPT_CALENDAR);
+        register_setting(self::OPT_CALENDAR, self::OPT_CALENDAR, [
+            'sanitize_callback' => [__CLASS__, 'sanitize_calendar'],
+        ]);
         add_settings_section('wgm_calendar_main', 'Impostazioni calendario', '__return_false', self::OPT_CALENDAR);
         add_settings_field('calendar_id', 'Calendario fonte', [__CLASS__, 'radio'], self::OPT_CALENDAR, 'wgm_calendar_main', [
             'key' => 'calendar_id',
@@ -96,7 +97,9 @@ class Settings
         ]);
 
         // Google Meet
-        register_setting(self::OPT_MEET, self::OPT_MEET);
+        register_setting(self::OPT_MEET, self::OPT_MEET, [
+            'sanitize_callback' => [__CLASS__, 'sanitize_meet'],
+        ]);
         add_settings_section('wgm_meet_main', 'Impostazioni Google Meet', '__return_false', self::OPT_MEET);
         add_settings_field('enable_meet', 'Abilita Google Meet', [__CLASS__, 'checkbox'], self::OPT_MEET, 'wgm_meet_main', [
             'key' => 'enable_meet',
@@ -107,7 +110,9 @@ class Settings
 
 
         // Email
-        register_setting(self::OPT_EMAIL, self::OPT_EMAIL);
+        register_setting(self::OPT_EMAIL, self::OPT_EMAIL, [
+            'sanitize_callback' => [__CLASS__, 'sanitize_email'],
+        ]);
         add_settings_section('wgm_email_main', 'Impostazioni email', '__return_false', self::OPT_EMAIL);
         add_settings_field('admin_email_enabled', 'Email amministratori abilitata', [__CLASS__, 'checkbox'], self::OPT_EMAIL, 'wgm_email_main', [
             'key' => 'admin_email_enabled',
@@ -153,6 +158,69 @@ class Settings
         ]);
     }
 
+    public static function sanitize_account($input)
+    {
+        $sanitized = [];
+        if (isset($input['auth_json'])) {
+            // Validate JSON structure but store as-is (contains OAuth credentials)
+            $decoded = json_decode($input['auth_json'], true);
+            if ($decoded !== null && isset($decoded['web'])) {
+                $sanitized['auth_json'] = $input['auth_json'];
+            }
+        }
+        // google_token is set programmatically via OAuth flow, not from settings form
+        $existing = get_option(self::OPT_ACCOUNT, []);
+        if (isset($existing['google_token'])) {
+            $sanitized['google_token'] = $existing['google_token'];
+        }
+        return $sanitized;
+    }
+
+    public static function sanitize_calendar($input)
+    {
+        $sanitized = [];
+        $string_keys = ['calendar_id', 'calendar_reservations_id', 'event_language', 'prefix', 'event_color', 'timezone'];
+        foreach ($string_keys as $key) {
+            if (isset($input[$key])) {
+                $sanitized[$key] = sanitize_text_field($input[$key]);
+            }
+        }
+        return $sanitized;
+    }
+
+    public static function sanitize_meet($input)
+    {
+        return [
+            'enable_meet' => isset($input['enable_meet']) && $input['enable_meet'] === 'yes' ? 'yes' : 'no',
+        ];
+    }
+
+    public static function sanitize_email($input)
+    {
+        $sanitized = [];
+        $checkbox_keys = ['admin_email_enabled', 'customer_email_enabled'];
+        foreach ($checkbox_keys as $key) {
+            $sanitized[$key] = isset($input[$key]) && $input[$key] === 'yes' ? 'yes' : 'no';
+        }
+        if (isset($input['admin_email_list'])) {
+            $sanitized['admin_email_list'] = sanitize_text_field($input['admin_email_list']);
+        }
+        $text_keys = ['admin_email_subject', 'customer_email_subject'];
+        foreach ($text_keys as $key) {
+            if (isset($input[$key])) {
+                $sanitized[$key] = sanitize_text_field($input[$key]);
+            }
+        }
+        // Email templates allow HTML
+        $html_keys = ['admin_email_template', 'customer_email_template'];
+        foreach ($html_keys as $key) {
+            if (isset($input[$key])) {
+                $sanitized[$key] = wp_kses_post($input[$key]);
+            }
+        }
+        return $sanitized;
+    }
+
     public static function get($key, $default = '', $option = self::OPT_ACCOUNT)
     {
         $opt = get_option($option, []);
@@ -162,18 +230,20 @@ class Settings
     public static function text($args)
     {
         $v = esc_attr(self::get($args['key'], '', $args['option'] ?? self::OPT_ACCOUNT));
-        echo "<input type='text' name='" . ($args['option'] ?? self::OPT_ACCOUNT) . "[{$args['key']}]' value='{$v}' class='regular-text' placeholder='{$args['placeholder']}'/>";
+        $placeholder = esc_attr($args['placeholder'] ?? '');
+        echo "<input type='text' name='" . esc_attr($args['option'] ?? self::OPT_ACCOUNT) . "[" . esc_attr($args['key']) . "]' value='{$v}' class='regular-text' placeholder='{$placeholder}'/>";
         if (!empty($args['description'])) {
-            echo "<p class='description'>{$args['description']}</p>";
+            echo '<p class="description">' . wp_kses($args['description'], ['a' => ['href' => [], 'target' => [], 'rel' => []]]) . '</p>';
         }
     }
 
     public static function textarea($args)
     {
         $v = esc_textarea(self::get($args['key'], '', $args['option'] ?? self::OPT_ACCOUNT));
-        echo "<textarea rows='10' style='width:100%' name='" . ($args['option'] ?? self::OPT_ACCOUNT) . "[{$args['key']}]' placeholder='{$args['placeholder']}'>{$v}</textarea>";
+        $placeholder = esc_attr($args['placeholder'] ?? '');
+        echo "<textarea rows='10' style='width:100%' name='" . esc_attr($args['option'] ?? self::OPT_ACCOUNT) . "[" . esc_attr($args['key']) . "]' placeholder='{$placeholder}'>{$v}</textarea>";
         if (!empty($args['description'])) {
-            echo "<p class='description'>{$args['description']}</p>";
+            echo '<p class="description">' . wp_kses($args['description'], ['a' => ['href' => [], 'target' => [], 'rel' => []]]) . '</p>';
         }
     }
 
@@ -182,10 +252,10 @@ class Settings
         $v = self::get($args['key'], '', $args['option'] ?? self::OPT_ACCOUNT);
         foreach ($args['options'] as $val => $label) {
             $checked = ($v === $val) ? 'checked' : '';
-            echo "<label><input type='radio' name='" . ($args['option'] ?? self::OPT_ACCOUNT) . "[{$args['key']}]' value='{$val}' {$checked}/> {$label}</label><br/>";
+            echo '<label><input type="radio" name="' . esc_attr($args['option'] ?? self::OPT_ACCOUNT) . '[' . esc_attr($args['key']) . ']" value="' . esc_attr($val) . '" ' . $checked . '/> ' . esc_html($label) . '</label><br/>';
         }
         if (!empty($args['description'])) {
-            echo "<p class='description'>{$args['description']}</p>";
+            echo '<p class="description">' . wp_kses($args['description'], ['a' => ['href' => [], 'target' => [], 'rel' => []]]) . '</p>';
         }
     }
 
@@ -193,9 +263,9 @@ class Settings
     {
         $v = self::get($args['key'], 'no', $args['option'] ?? self::OPT_ACCOUNT);
         $checked = ($v === 'yes') ? 'checked' : '';
-        echo "<label><input type='checkbox' name='" . ($args['option'] ?? self::OPT_ACCOUNT) . "[{$args['key']}]' value='yes' {$checked}/> {$args['label']}</label>";
+        echo '<label><input type="checkbox" name="' . esc_attr($args['option'] ?? self::OPT_ACCOUNT) . '[' . esc_attr($args['key']) . ']" value="yes" ' . $checked . '/> ' . esc_html($args['label'] ?? '') . '</label>';
         if (!empty($args['description'])) {
-            echo "<p class='description'>{$args['description']}</p>";
+            echo '<p class="description">' . wp_kses($args['description'], ['a' => ['href' => [], 'target' => [], 'rel' => []]]) . '</p>';
         }
     }
 
@@ -204,18 +274,19 @@ class Settings
         $v = self::get($args['key'], '', $args['option'] ?? self::OPT_ACCOUNT);
         foreach ($args['options'] as $val => $color) {
             $checked = ($v == $val) ? 'checked' : '';
-            echo "<label style='margin-right:10px;'><input type='radio' name='" . ($args['option'] ?? self::OPT_ACCOUNT) . "[{$args['key']}]' value='{$val}' {$checked}/>"
-                . "<span style='display:inline-block;width:20px;height:20px;background-color:{$color};border:1px solid #000;margin-left:5px;vertical-align:middle;'></span></label>";
+            $safe_color = sanitize_hex_color($color) ?: '#000000';
+            echo '<label style="margin-right:10px;"><input type="radio" name="' . esc_attr($args['option'] ?? self::OPT_ACCOUNT) . '[' . esc_attr($args['key']) . ']" value="' . esc_attr($val) . '" ' . $checked . '/>'
+                . '<span style="display:inline-block;width:20px;height:20px;background-color:' . esc_attr($safe_color) . ';border:1px solid #000;margin-left:5px;vertical-align:middle;"></span></label>';
         }
     }
 
     public static function google_login_button($args)
     {
-        $login_url = esc_url(admin_url('admin.php?page=wgm-account&action=wgm_google_login'));
-        echo "<a href='{$login_url}' class='button button-primary'>Login con Google</a>";
-        echo "<p class='description'>Accedi con il tuo account Google per autorizzare l'applicazione.</p>";
+        $login_url = wp_nonce_url(admin_url('admin.php?page=wgm-account&action=wgm_google_login'), 'wgm_google_login');
+        echo '<a href="' . esc_url($login_url) . '" class="button button-primary">Login con Google</a>';
+        echo '<p class="description">Accedi con il tuo account Google per autorizzare l\'applicazione.</p>';
         if (\WGM\GoogleClient::getEmail() != null) {
-            echo "<p>Connesso come: <strong>" . esc_html(\WGM\GoogleClient::getEmail()) . "</strong></p>";
+            echo '<p>Connesso come: <strong>' . esc_html(\WGM\GoogleClient::getEmail()) . '</strong></p>';
         }
     }
 
@@ -224,21 +295,23 @@ class Settings
     {
         if (!is_admin() || !current_user_can('manage_options')) return;
         if (isset($_GET['action']) && $_GET['action'] === 'wgm_google_login') {
+            check_admin_referer('wgm_google_login');
             $auth_url = \WGM\GoogleClient::getAuthUrl();
-            wp_redirect($auth_url);
+            wp_redirect(esc_url_raw($auth_url));
             exit;
         }
         // Callback: salva token
         if (isset($_GET['code']) && isset($_GET['page']) && $_GET['page'] === 'wgm-account') {
-            $token = \WGM\GoogleClient::fetchAccessTokenWithAuthCode($_GET['code']);
+            // OAuth callback from Google — state parameter is handled by Google client
+            $token = \WGM\GoogleClient::fetchAccessTokenWithAuthCode(sanitize_text_field($_GET['code']));
             if ($token) {
                 $opt = get_option(self::OPT_ACCOUNT, []);
                 $opt['google_token'] = $token;
                 update_option(self::OPT_ACCOUNT, $opt);
-                wp_redirect(admin_url('admin.php?page=wgm-account&google_login=success'));
+                wp_redirect(esc_url_raw(admin_url('admin.php?page=wgm-account&google_login=success')));
                 exit;
             } else {
-                wp_redirect(admin_url('admin.php?page=wgm-account&google_login=error'));
+                wp_redirect(esc_url_raw(admin_url('admin.php?page=wgm-account&google_login=error')));
                 exit;
             }
         }
@@ -278,7 +351,7 @@ class Settings
 
     private static function render_section($title, $option)
     {
-        echo "<div class='wrap'><h1>{$title}</h1><form method='post' action='options.php'>";
+        echo "<div class='wrap'><h1>" . esc_html($title) . "</h1><form method='post' action='options.php'>";
         settings_fields($option);
         do_settings_sections($option);
         submit_button();

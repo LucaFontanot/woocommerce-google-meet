@@ -200,7 +200,7 @@ class Checkout
             }
             $sendAdminEmail = \WGM\Settings::get('admin_email_enabled', 'no', \WGM\Settings::OPT_EMAIL) === 'yes';
             if ($sendAdminEmail){
-                $adminEmails = explode(\WGM\Settings::get('admin_email_list', '', \WGM\Settings::OPT_EMAIL), ',');
+                $adminEmails = explode(',', \WGM\Settings::get('admin_email_list', '', \WGM\Settings::OPT_EMAIL));
                 foreach ($adminEmails as $adminEmail) {
                     $adminEmail = trim($adminEmail);
                     if (is_email($adminEmail)) {
@@ -242,6 +242,7 @@ class Checkout
             wp_die('Nonce non valido');
         }
         self::send_customer_meeting_email_on_payment($order_id);
+        wp_redirect(esc_url_raw(admin_url('post.php?post=' . $order_id . '&action=edit')));
         exit;
     }
 

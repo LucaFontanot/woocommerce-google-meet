@@ -22,6 +22,10 @@ require_once WGM_PATH . 'includes/GoogleClient.php';
 require_once WGM_PATH . 'includes/Availability.php';
 require_once WGM_PATH . 'includes/Checkout.php';
 
+add_action('init', function () {
+    load_plugin_textdomain('wgm', false, dirname(plugin_basename(__FILE__)) . '/languages');
+});
+
 add_action('plugins_loaded', function () {
     \WGM\Settings::init();
     \WGM\GoogleClient::init();

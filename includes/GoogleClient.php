@@ -117,8 +117,8 @@ class GoogleClient {
         if ($client->isAccessTokenExpired()) {
             return null;
         }
-        // Usa Google_Service_Oauth2 invece di PeopleService
-        $oauth2 = new \Google_Service_Oauth2($client);
+        // Use Oauth2 service to retrieve authenticated user email
+        $oauth2 = new \Google\Service\Oauth2($client);
         $userinfo = $oauth2->userinfo->get();
         return $userinfo->email ?? null;
     }
